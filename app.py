@@ -39,7 +39,7 @@ try:
     GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=GEMINI_API_KEY)
     # Gemini 1.5 Flash: 빠른 응답 속도 + 긴 컨텍스트를 지원하는 경량 모델
-    gemini_model = genai.GenerativeModel("gemini-1.5-flash")
+    gemini_model = genai.GenerativeModel("gemini-2.5-flash")
 except KeyError:
     st.error(
         "⚠️ **GEMINI_API_KEY 가 설정되어 있지 않습니다.**\n\n"
