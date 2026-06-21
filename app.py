@@ -64,6 +64,7 @@ except KeyError:
 #      "code":    str | None,            ← AI 가 생성한 Python 코드
 #      "fig":     Figure | None,         ← Plotly 차트 객체
 #      "result":  any | None,            ← 차트 외 분석 결과 (DataFrame, 숫자 등)
+#      "report":  str | None,            ← 차트 기반 AI 분석 리포트 (fig 있을 때만)
 #      "error":   str | None,            ← 에러 메시지
 #    }
 # ════════════════════════════════════════════════════════════════════════════
@@ -168,6 +169,12 @@ def render_message(msg: dict) -> None:
         else:
             st.write(result)
 
+    # AI 분석 리포트 (차트 아래에 표시)
+    if msg.get("report"):
+        st.markdown("---")
+        st.markdown("**📋 AI 분석 리포트**")
+        st.info(msg["report"])
+
     # 에러 메시지
     if msg.get("error"):
         st.error(msg["error"])
@@ -202,7 +209,7 @@ else:
 
         # ── 7-2. 사용자 메시지 저장 & 즉시 렌더링
         user_msg = {"role": "user", "content": user_input, "code": None,
-                    "fig": None, "result": None, "error": None}
+                    "fig": None, "result": None, "report": None, "error": None}
         st.session_state.messages.append(user_msg)
         with st.chat_message("user"):
             st.markdown(user_input)
@@ -255,7 +262,7 @@ else:
                     st.error(err_msg)
                     st.session_state.messages.append({
                         "role": "assistant", "content": None, "code": None,
-                        "fig": None, "result": None, "error": err_msg,
+                        "fig": None, "result": None, "report": None, "error": err_msg,
                     })
                     api_call_ok = False
 
@@ -304,12 +311,51 @@ else:
                     if fig is not None:
                         # Plotly 인터랙티브 차트 출력
                         st.plotly_chart(fig, use_container_width=True)
+
+                        # ── [STEP D-2] 차트 기반 AI 분석 리포트 생성
+                        #    df.describe() 를 문자열로 변환해 프롬프트에 삽입
+                        report_text = None
+                        try:
+                            describe_str = df.describe(include="all").to_string()
+                            report_prompt = f"""
+너는 데이터 분석 전문가다. 아래 정보를 바탕으로 차트에서 읽을 수 있는 핵심 인사이트를 짧은 리포트로 작성해라.
+
+[사용자 질문]
+{user_input}
+
+[실행된 분석 코드]
+{clean_code}
+
+[데이터 기본 통계 (df.describe)]
+{describe_str}
+
+[작성 규칙]
+- 3~5개의 핵심 인사이트를 불릿 포인트(•)로 작성해라.
+- 각 항목은 1~2문장으로 간결하게 작성해라.
+- 구체적인 수치나 비율을 포함해 설득력 있게 써라.
+- 마크다운 볼드(**텍스트**)를 활용해 핵심 수치를 강조해라.
+- 반드시 한국어로 작성해라.
+- 코드나 코드 블록은 절대 포함하지 마라.
+""".strip()
+                            with st.spinner("📋 분석 리포트를 작성 중입니다..."):
+                                report_resp = gemini_model.generate_content(report_prompt)
+                                report_text = report_resp.text.strip()
+
+                            st.markdown("---")
+                            st.markdown("**📋 AI 분석 리포트**")
+                            st.info(report_text)
+
+                        except Exception:
+                            # 리포트 생성 실패 시 차트 결과에는 영향 없이 조용히 넘어감
+                            pass
+
                         assistant_msg = {
                             "role": "assistant",
                             "content": "✅ 차트가 생성되었습니다!",
                             "code": clean_code,
                             "fig": fig,
                             "result": None,
+                            "report": report_text,
                             "error": None,
                         }
 
@@ -326,6 +372,7 @@ else:
                             "code": clean_code,
                             "fig": None,
                             "result": result,
+                            "report": None,
                             "error": None,
                         }
 
@@ -342,6 +389,7 @@ else:
                             "code": clean_code,
                             "fig": None,
                             "result": None,
+                            "report": None,
                             "error": None,
                         }
 
@@ -359,6 +407,7 @@ else:
                         "code": clean_code,
                         "fig": None,
                         "result": None,
+                        "report": None,
                         "error": err_msg,
                     }
 
