@@ -38,8 +38,8 @@ st.set_page_config(
 try:
     GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=GEMINI_API_KEY)
-    # Gemini 1.5 Flash: 빠른 응답 속도 + 긴 컨텍스트를 지원하는 경량 모델
-    gemini_model = genai.GenerativeModel("gemini-2.5-flash")
+    # Gemini 3.1 Flash Lite: 빠른 응답 속도 + 긴 컨텍스트를 지원하는 경량 모델
+    gemini_model = genai.GenerativeModel("gemini-3.1-flash-lite")
 except KeyError:
     st.error(
         "⚠️ **GEMINI_API_KEY 가 설정되어 있지 않습니다.**\n\n"
@@ -125,7 +125,7 @@ with st.sidebar:
             st.rerun()
 
     st.markdown("---")
-    st.caption("Powered by Gemini 1.5 Flash · Built with Streamlit")
+    st.caption("Powered by Gemini 3.1 Flash Lite · Built with Streamlit")
 
 
 # ════════════════════════════════════════════════════════════════════════════
