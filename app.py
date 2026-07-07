@@ -79,24 +79,75 @@ with st.sidebar:
     st.title("📂 데이터 업로드")
     st.markdown("---")
 
-    uploaded_file = st.file_uploader(
-        label="CSV 파일을 선택하거나 드래그하세요",
-        type=["csv"],
-        help="UTF-8 인코딩의 CSV 파일을 권장합니다.",
+    # ── 4-0. 샘플 데이터셋 정의: 파일 경로 + 데이터셋별 예시 질문
+    SAMPLE_DATASETS = {
+        "🛒 판매 데이터 (sales_data)": {
+            "path": "sample_data/sales_data.csv",
+            "questions": [
+                "카테고리별 매출액 합계를 막대 차트로 보여줘",
+                "지역별 판매량을 비교하는 차트를 그려줘",
+                "월별 매출 추이를 선 그래프로 그려줘",
+                "할인율이 높은 상위 10개 거래를 보여줘",
+                "제품별 평균 단가와 판매량의 관계를 산점도로 그려줘",
+            ],
+        },
+        "👥 고객 데이터 (customer_data)": {
+            "path": "sample_data/customer_data.csv",
+            "questions": [
+                "회원등급별 평균 총구매금액을 막대 차트로 그려줘",
+                "나이대별 고객 수 분포를 히스토그램으로 보여줘",
+                "연간소득과 총구매금액의 상관관계를 산점도로 그려줘",
+                "거주지역별 평균 만족도를 비교해줘",
+                "구매횟수가 가장 많은 상위 10명의 고객을 보여줘",
+            ],
+        },
+        "📢 마케팅 데이터 (marketing_data)": {
+            "path": "sample_data/marketing_data.csv",
+            "questions": [
+                "채널별 ROI를 막대 차트로 비교해줘",
+                "월별 광고비와 매출기여액 추이를 선 그래프로 그려줘",
+                "채널별 CTR과 CVR을 비교하는 차트를 만들어줘",
+                "광고비 대비 매출기여액이 가장 높은 채널이 어디인지 보여줘",
+                "전환수가 가장 높은 채널 top 5를 보여줘",
+            ],
+        },
+    }
+
+    data_source = st.radio(
+        label="데이터 불러오기 방식",
+        options=["📁 CSV 업로드", "✨ 샘플 데이터 사용"],
+        horizontal=True,
     )
 
     # df 와 df_info_str 은 이후 메인 화면에서도 사용하므로 None 으로 초기화
     df: pd.DataFrame | None = None
     df_info_str: str = ""
+    example_questions: list[str] = []  # 로드된 데이터셋에 대응하는 예시 질문 목록
 
-    if uploaded_file is not None:
-
-        # ── 4-1. CSV 파싱
+    if data_source == "✨ 샘플 데이터 사용":
+        sample_name = st.selectbox("샘플 데이터셋 선택", list(SAMPLE_DATASETS.keys()))
+        sample_info = SAMPLE_DATASETS[sample_name]
         try:
-            df = pd.read_csv(uploaded_file)
+            df = pd.read_csv(sample_info["path"])
+            example_questions = sample_info["questions"]
         except Exception as read_err:
-            st.error(f"CSV 파일을 읽는 중 오류가 발생했습니다:\n`{read_err}`")
+            st.error(f"샘플 데이터를 불러오는 중 오류가 발생했습니다:\n`{read_err}`")
             st.stop()
+    else:
+        uploaded_file = st.file_uploader(
+            label="CSV 파일을 선택하거나 드래그하세요",
+            type=["csv"],
+            help="UTF-8 인코딩의 CSV 파일을 권장합니다.",
+        )
+        if uploaded_file is not None:
+            # ── 4-1. CSV 파싱
+            try:
+                df = pd.read_csv(uploaded_file)
+            except Exception as read_err:
+                st.error(f"CSV 파일을 읽는 중 오류가 발생했습니다:\n`{read_err}`")
+                st.stop()
+
+    if df is not None:
 
         st.success(f"✅ 로드 완료: **{df.shape[0]:,}행 × {df.shape[1]}열**")
 
@@ -116,6 +167,15 @@ with st.sidebar:
 
         with st.expander("📊 기술 통계 (df.describe)", expanded=False):
             st.dataframe(df.describe(), use_container_width=True)
+
+        # ── 4-3-1. 데이터셋별 예시 질문 (버튼 클릭 시 바로 채팅에 전송)
+        if example_questions:
+            st.markdown("---")
+            with st.expander("💡 이런 질문을 해보세요", expanded=True):
+                for i, q in enumerate(example_questions):
+                    if st.button(q, key=f"example_q_{i}", use_container_width=True):
+                        st.session_state.pending_query = q
+                        st.rerun()
 
         st.markdown("---")
 
@@ -201,9 +261,14 @@ if df is None:
 
 else:
     # ── 7-1. 사용자 입력 수신
+    #         사이드바의 예시 질문 버튼이 눌리면 pending_query 로 전달되어
+    #         chat_input 을 거치지 않고도 곧바로 사용자 입력으로 처리된다.
+    pending_query: str | None = st.session_state.pop("pending_query", None)
     user_input: str | None = st.chat_input(
         placeholder="예) '연도별 평균 매출을 막대 차트로 그려줘', '결측값 개수를 알려줘'"
     )
+    if pending_query:
+        user_input = pending_query
 
     if user_input:
 
